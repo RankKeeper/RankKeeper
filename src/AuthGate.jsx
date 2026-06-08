@@ -36,6 +36,7 @@ export default function AuthGate() {
   const [mode, setMode] = useState("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [password2, setPassword2] = useState("");
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState(null);
 
@@ -63,9 +64,29 @@ export default function AuthGate() {
     return () => { cancelled = true; };
   }, [session]);
 
+  function switchMode(next) {
+    setMode(next);
+    setMsg(null);
+    setPassword("");
+    setPassword2("");
+  }
+
   async function handleSubmit(e) {
     if (e && e.preventDefault) e.preventDefault();
-    setBusy(true); setMsg(null);
+    setMsg(null);
+
+    if (mode === "signup") {
+      if (password.length < 6) {
+        setMsg("Password must be at least 6 characters.");
+        return;
+      }
+      if (password !== password2) {
+        setMsg("Passwords don't match — please re-enter them.");
+        return;
+      }
+    }
+
+    setBusy(true);
     try {
       if (mode === "signup") {
         const { error } = await supabase.auth.signUp({ email, password });
@@ -84,7 +105,9 @@ export default function AuthGate() {
   async function logout() {
     await supabase.auth.signOut();
     setProfile(null);
-    setEmail(""); setPassword("");
+    setEmail("");
+    setPassword("");
+    setPassword2("");
   }
 
   const hasAccess =
@@ -126,15 +149,28 @@ export default function AuthGate() {
                 onChange={(e) => setPassword(e.target.value)}
                 required
               />
+              {mode === "signup" && (
+                <>
+                  <label className="rk-label">Confirm password</label>
+                  <input
+                    className="rk-input"
+                    type="password"
+                    autoComplete="new-password"
+                    value={password2}
+                    onChange={(e) => setPassword2(e.target.value)}
+                    required
+                  />
+                </>
+              )}
               <button className="rk-btn" type="submit" disabled={busy}>
                 {busy ? "Please wait…" : mode === "signup" ? "Create account" : "Log in"}
               </button>
             </form>
             <div className="rk-toggle">
               {mode === "signup" ? (
-                <>Already have an account? <button onClick={() => { setMode("login"); setMsg(null); }}>Log in</button></>
+                <>Already have an account? <button onClick={() => switchMode("login")}>Log in</button></>
               ) : (
-                <>Need an account? <button onClick={() => { setMode("signup"); setMsg(null); }}>Sign up</button></>
+                <>Need an account? <button onClick={() => switchMode("signup")}>Sign up</button></>
               )}
             </div>
           </div>
