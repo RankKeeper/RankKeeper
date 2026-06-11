@@ -219,6 +219,7 @@ export default function GradingApp() {
   const [selStudent, setSelStudent] = useState("");
   const [newName, setNewName] = useState("");
   const [newStartRank, setNewStartRank] = useState("Beginner");
+  const [editingStudent, setEditingStudent] = useState(null); // {id, name} being edited
   const [overrideGrade, setOverrideGrade] = useState("");
   const [testDate, setTestDate] = useState(today());
   const [scores, setScores] = useState({}); // { itemId: "Pass"|"Refer"|"Fail" } — in-app data entry
@@ -312,6 +313,13 @@ export default function GradingApp() {
     const r = roster.filter((s) => s.id !== id); const h = history.filter((e) => e.studentId !== id);
     if (selStudent === id) setSelStudent("");
     persistStudents(r, h);
+  };
+  const saveEditStudent = () => {
+    if (!editingStudent || !editingStudent.name.trim()) return;
+    const r = roster.map((s) => s.id === editingStudent.id ? { ...s, name: editingStudent.name.trim() } : s);
+    const h = history.map((e) => e.studentId === editingStudent.id ? { ...e, studentName: editingStudent.name.trim() } : e);
+    persistStudents(r, h);
+    setEditingStudent(null);
   };
   const rankLookup = useMemo(() => {
     const m = { beginner: "Beginner" };
@@ -567,7 +575,20 @@ export default function GradingApp() {
 
                   <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                     <button className="ng-btn ng-btn-primary" onClick={() => setScreen("assess")} disabled={!testing}><ClipboardList size={16} /> Continue to assessment</button>
+                    <button className="ng-btn ng-btn-ghost" style={{ padding: "7px 12px", fontSize: 12.5 }} onClick={() => setEditingStudent(roster.find(s => s.id === selStudent))}><UserRound size={14} /> Edit student</button>
                   </div>
+
+                  {/* inline edit form */}
+                  {editingStudent?.id === selStudent && (
+                    <div style={{ background: "var(--paper2)", borderRadius: 11, padding: "14px", display: "grid", gap: 10 }}>
+                      <label className="lbl" style={{ marginBottom: 0 }}>Edit student name</label>
+                      <div style={{ display: "flex", gap: 8 }}>
+                        <input className="ng-input" value={editingStudent.name} onChange={(e) => setEditingStudent({ ...editingStudent, name: e.target.value })} onKeyDown={(e) => e.key === "Enter" && saveEditStudent()} autoFocus />
+                        <button className="ng-btn ng-btn-ink" style={{ flex: "none" }} onClick={saveEditStudent}><Check size={15} /> Save</button>
+                        <button className="ng-btn ng-btn-ghost" style={{ flex: "none" }} onClick={() => setEditingStudent(null)}>Cancel</button>
+                      </div>
+                    </div>
+                  )}
 
                   {/* history */}
                   {studentHistory(selStudent).length > 0 && (
