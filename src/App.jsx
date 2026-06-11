@@ -220,7 +220,8 @@ export default function GradingApp() {
   const [newName, setNewName] = useState("");
   const [newDob, setNewDob] = useState("");
   const [newStartRank, setNewStartRank] = useState("Beginner");
-  const [editingStudent, setEditingStudent] = useState(null); // {id, name, dob} being edited
+  const [editingStudent, setEditingStudent] = useState(null);
+  const [passConfirm, setPassConfirm] = useState(null); // {defaultRank} when open
 
   // Calculate age from DOB string (YYYY-MM-DD) using device timezone
   const calcAge = (dob) => {
@@ -390,11 +391,11 @@ export default function GradingApp() {
     } catch (err) { setImportMsg("Template columns: name, current_rank, date"); }
   };
   const [recStripes, setRecStripes] = useState(1);
-  const recordResult = (result) => {
+  const recordResult = (result, targetRank) => {
     if (!selStudent || !testing) return;
     const student = roster.find((r) => r.id === selStudent);
     const entry = { id: uid(), studentId: selStudent, studentName: student.name, date: testDate, grade: testingKey, result };
-    if (result === "Pass") entry.rank = testing.to;
+    if (result === "Pass") entry.rank = targetRank || testing.to;
     else if (result === "Stripe") { entry.rank = currentRank(selStudent); entry.stripes = recStripes; }
     else entry.rank = currentRank(selStudent);
     entry.scores = { ...scores };
@@ -553,7 +554,7 @@ export default function GradingApp() {
                 <input className="ng-input" value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="Full name" onKeyDown={(e) => e.key === "Enter" && addStudent()} />
                 <button className="ng-btn ng-btn-ink" style={{ flex: "none" }} onClick={addStudent}><Plus size={16} /> Add</button>
               </div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 10 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 80px", gap: 8, marginTop: 10 }}>
                 <div>
                   <label className="lbl">Date of birth</label>
                   <input className="ng-input" value={newDob} onChange={(e) => setNewDob(e.target.value)} placeholder="MM/DD/YYYY" maxLength={10} />
@@ -668,7 +669,7 @@ export default function GradingApp() {
                                     <label className="lbl">Full name</label>
                                     <input className="ng-input" style={{ borderColor: "var(--gold)", outlineColor: "var(--gold)" }} value={editingStudent.name} onChange={(e) => setEditingStudent({ ...editingStudent, name: e.target.value })} autoFocus />
                                   </div>
-                                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 12 }}>
+                                  <div style={{ display: "grid", gridTemplateColumns: "1fr 80px", gap: 8, marginBottom: 12 }}>
                                     <div>
                                       <label className="lbl">Date of birth</label>
                                       <input className="ng-input" value={editingStudent.dobDisplay || fmtDob(editingStudent.dob) || ''} onChange={(e) => setEditingStudent({ ...editingStudent, dobDisplay: e.target.value, dob: parseDob(e.target.value) })} placeholder="MM/DD/YYYY" maxLength={10} />
@@ -772,7 +773,7 @@ export default function GradingApp() {
                 <div className="ng-card" style={{ padding: 18 }}>
                   <label className="lbl">Record overall result (saves a dated line to their record)</label>
                   <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-                    <button className="ng-btn ng-btn-ink" onClick={() => { recordResult("Pass"); setScreen("print"); }}><CircleCheck size={15} /> Pass → {testing.to}</button>
+                    <button className="ng-btn ng-btn-ink" onClick={() => setPassConfirm({ targetRank: testing.to })}><CircleCheck size={15} /> Pass → {testing.to}</button>
                     <button className="ng-btn ng-btn-ghost" onClick={() => recordResult("Stripe")}>Stripe (½)</button>
                     <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
                       <button className="ng-btn ng-btn-ghost" style={{ padding: "7px 11px" }} onClick={() => setRecStripes((n) => Math.max(1, n - 1))}>−</button>
@@ -784,6 +785,36 @@ export default function GradingApp() {
                   </div>
                   <p style={{ fontSize: 12, color: "var(--ink-soft)", margin: "8px 0 0" }}>The Pass / Refer / Fail marks above carry onto the printed sheet — the chosen result is circled. Anything left unmarked prints blank to circle by hand.</p>
                 </div>
+
+                {/* Pass confirmation sheet */}
+                {passConfirm && (
+                  <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", zIndex: 200, display: "flex", alignItems: "flex-end", justifyContent: "center" }} onClick={(e) => { if(e.target === e.currentTarget) setPassConfirm(null) }}>
+                    <div style={{ background: "var(--paper)", borderRadius: "20px 20px 0 0", padding: "24px 20px 40px", width: "100%", maxWidth: 480, border: "0.5px solid var(--line)" }}>
+                      <div style={{ fontSize: 19, fontWeight: 700, marginBottom: 4 }}>Confirm Pass</div>
+                      <div style={{ fontSize: 14, color: "var(--ink-soft)", marginBottom: 20 }}>Promote {roster.find(s=>s.id===selStudent)?.name} to:</div>
+                      <div style={{ position: "relative", marginBottom: 20 }}>
+                        <select className="ng-select" value={passConfirm.targetRank} onChange={(e) => setPassConfirm({ ...passConfirm, targetRank: e.target.value })}>
+                          {grades.map(g => <option key={g} value={syllabus[g].to}>{syllabus[g].to}</option>)}
+                        </select>
+                        <ChevronDown size={16} style={{ position: "absolute", right: 11, top: 12, pointerEvents: "none", color: "var(--ink-soft)" }} />
+                      </div>
+                      {passConfirm.targetRank !== testing.to && (
+                        <div style={{ background: "#FEF3C7", border: "0.5px solid #F59E0B", borderRadius: 10, padding: "10px 14px", marginBottom: 16, fontSize: 13, color: "#92400E" }}>
+                          ⚠️ Skipping belt — standard next rank is {testing.to}
+                        </div>
+                      )}
+                      <div style={{ display: "flex", gap: 8 }}>
+                        <button className="ng-btn ng-btn-ghost" style={{ flex: 1, padding: 13 }} onClick={() => setPassConfirm(null)}>Cancel</button>
+                        <button className="ng-btn ng-btn-ink" style={{ flex: 1, padding: 13, fontWeight: 700 }} onClick={() => {
+                          const overriddenEntry = { ...passConfirm };
+                          setPassConfirm(null);
+                          recordResult("Pass", overriddenEntry.targetRank);
+                          setScreen("print");
+                        }}>Confirm Pass →</button>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </>
             )}
           </div>
