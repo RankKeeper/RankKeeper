@@ -212,27 +212,27 @@ export default function AuthGate() {
           .home-nav{padding:18px 20px 14px;display:flex;align-items:center;justify-content:space-between;border-bottom:0.5px solid rgba(212,175,55,0.2);}
           .home-wordmark{font-size:18px;font-weight:700;color:#fff;letter-spacing:-.01em;}
           .home-euc{font-size:11px;color:#D4AF37;letter-spacing:.06em;text-transform:uppercase;margin-top:1px;}
-          .home-greeting{padding:24px 20px 8px;text-align:center;}
-          .home-greeting h1{font-size:24px;font-weight:700;color:#fff;margin:0 0 6px;letter-spacing:-.02em;}
+          .home-greeting{padding:16px 20px 6px;text-align:center;}
+          .home-greeting h1{font-size:20px;font-weight:700;color:#fff;margin:0 0 4px;letter-spacing:-.02em;}
           .home-greeting p{font-size:14px;color:#8A8AAA;margin:0;}
-          .home-cards{flex:1;display:flex;flex-direction:column;gap:14px;padding:16px 16px 24px;}
+          .home-cards{flex:1;display:flex;flex-direction:column;gap:12px;padding:16px 16px 24px;max-width:480px;margin:0 auto;width:100%;}
           .hcard{border-radius:16px;background:#1C1C2E;border:1px solid #2E2E42;overflow:hidden;display:flex;flex-direction:column;}
           .hcard-accent{height:3px;background:linear-gradient(90deg,#D4AF37,#F0D060);}
-          .hcard-body{padding:18px 18px 14px;display:flex;gap:14px;align-items:flex-start;}
-          .hcard-logo{width:54px;height:54px;border-radius:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0;overflow:hidden;}
+          .hcard-body{padding:14px 14px 10px;display:flex;gap:12px;align-items:flex-start;}
+          .hcard-logo{width:44px;height:44px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;overflow:hidden;}
           .hcard-logo img{width:100%;height:100%;object-fit:contain;padding:4px;}
           .hcard-info{flex:1;}
-          .hcard-title{font-size:20px;font-weight:700;color:#fff;letter-spacing:-.02em;margin:0 0 4px;}
-          .hcard-desc{font-size:13px;color:#8A8AAA;line-height:1.5;margin:0 0 10px;}
+          .hcard-title{font-size:17px;font-weight:700;color:#fff;letter-spacing:-.02em;margin:0 0 3px;}
+          .hcard-desc{font-size:12px;color:#8A8AAA;line-height:1.4;margin:0 0 8px;}
           .hcard-pills{display:flex;flex-wrap:wrap;gap:5px;}
           .hcard-pill{font-size:11px;font-weight:500;padding:2px 8px;border-radius:20px;background:rgba(212,175,55,0.1);border:0.5px solid rgba(212,175,55,0.25);color:#D4AF37;}
-          .hcard-footer{padding:0 18px 18px;}
-          .hcard-btn{width:100%;padding:14px;border-radius:10px;border:none;background:linear-gradient(135deg,#D4AF37,#F0D060);color:#002570;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit;letter-spacing:.01em;}
+          .hcard-footer{padding:0 14px 14px;}
+          .hcard-btn{width:100%;padding:12px;border-radius:10px;border:none;background:linear-gradient(135deg,#D4AF37,#F0D060);color:#002570;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;letter-spacing:.01em;}
           .hcard-btn:active{opacity:.88;}
           .home-foot{padding:10px 20px 20px;text-align:center;border-top:0.5px solid rgba(255,255,255,0.06);}
           .home-foot span{font-size:11px;color:#8A8AAA;}
           .home-foot button{background:none;border:none;color:#D4AF37;font-size:11px;cursor:pointer;font-family:inherit;text-decoration:underline;padding:0;margin-left:4px;}
-          @media(orientation:landscape){.home-cards{flex-direction:row;}}
+          @media(orientation:landscape){.home-cards{flex-direction:column;}}
         `}</style>
         <div className="home">
           <div className="home-nav">
