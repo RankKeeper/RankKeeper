@@ -517,14 +517,16 @@ export default function GradingApp() {
         {/* ===================== ENTRY ===================== */}
         {screen === "entry" && (
           <div className="ng-fade" style={{ display: "grid", gap: 16 }}>
+
+            {/* Add student card */}
             <div className="ng-card" style={{ padding: 18 }}>
               <SectionTitle title="Add a student" sub="Each student carries their own rank history." />
               <div style={{ display: "flex", gap: 8 }}>
-                <input className="ng-input" value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="New student name" onKeyDown={(e) => e.key === "Enter" && addStudent()} />
+                <input className="ng-input" value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="Full name" onKeyDown={(e) => e.key === "Enter" && addStudent()} />
                 <button className="ng-btn ng-btn-ink" style={{ flex: "none" }} onClick={addStudent}><Plus size={16} /> Add</button>
               </div>
               <div style={{ marginTop: 10 }}>
-                <label className="lbl">Starting rank <span style={{ fontWeight: 400, textTransform: "none", letterSpacing: 0 }}>(default: Beginner / White belt)</span></label>
+                <label className="lbl">Starting rank <span style={{ fontWeight: 400, textTransform: "none", letterSpacing: 0 }}>(default: Beginner / White)</span></label>
                 <div style={{ position: "relative" }}>
                   <select className="ng-select" value={newStartRank} onChange={(e) => setNewStartRank(e.target.value)}>
                     <option value="Beginner">Beginner (White belt)</option>
@@ -535,80 +537,133 @@ export default function GradingApp() {
               </div>
             </div>
 
-            <div className="ng-card" style={{ padding: 18 }}>
-              <SectionTitle title="Set up a grading" sub="Pick a student — their next rank is worked out from their history." />
-              <div style={{ position: "relative", marginBottom: 12 }}>
-                <label className="lbl">Student</label>
-                <select className="ng-select" value={selStudent} onChange={(e) => { setSelStudent(e.target.value); setOverrideGrade(""); setScores({}); }}>
-                  <option value="">— Select student —</option>
-                  {roster.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-                </select>
-                <ChevronDown size={16} style={{ position: "absolute", right: 11, bottom: 12, pointerEvents: "none", color: "var(--ink-soft)" }} />
-              </div>
+            {/* Roster grouped by division */}
+            {roster.length === 0 && (
+              <div className="ng-card" style={{ padding: 24, textAlign: "center", color: "var(--ink-soft)", fontStyle: "italic" }}>No students yet — add your first above.</div>
+            )}
 
-              {selStudent && (
-                <div style={{ display: "grid", gap: 12 }}>
-                  <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center", background: "var(--paper2)", borderRadius: 11, padding: "12px 14px" }}>
-                    <div>
-                      <div style={{ fontSize: 11, color: "var(--ink-soft)", fontWeight: 700, letterSpacing: ".05em" }}>CURRENT RANK</div>
-                      <div className="ng-serif" style={{ fontSize: 18, fontWeight: 700 }}>{currentRank(selStudent)}{stripesNow(selStudent) > 0 && <span style={{ color: "var(--crimson)", fontSize: 14 }}> + {stripesNow(selStudent)} stripe{stripesNow(selStudent) > 1 ? "s" : ""}</span>}</div>
-                    </div>
-                    <ChevronRight size={20} style={{ color: "var(--crimson)" }} />
-                    <div>
-                      <div style={{ fontSize: 11, color: "var(--ink-soft)", fontWeight: 700, letterSpacing: ".05em" }}>TESTING FOR</div>
-                      <div className="ng-serif" style={{ fontSize: 18, fontWeight: 700, color: "var(--crimson-d)" }}>{testing ? testing.to : "Top rank reached"}</div>
-                    </div>
+            {[
+              { label: "Beginner",     color: "#27AE60", ranks: ["Beginner","10th Kyu","9th Kyu","8th Kyu","7th Kyu","6th Kyu"] },
+              { label: "Intermediate", color: "#2980B9", ranks: ["5th Kyu","4th Kyu","3rd Kyu"] },
+              { label: "Advanced",     color: "#7B4B2A", ranks: ["2nd Kyu","1st Kyu","Shodan","Nidan","Sandan","Yondan","Godan"] },
+            ].map(div => {
+              const group = roster.filter(s => div.ranks.includes(currentRank(s.id)))
+              if (!group.length) return null
+              return (
+                <div key={div.label}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8, paddingLeft: 2 }}>
+                    <div style={{ width: 10, height: 10, borderRadius: "50%", background: div.color, flexShrink: 0 }} />
+                    <span style={{ fontSize: 11, fontWeight: 700, color: "var(--ink-soft)", letterSpacing: ".06em", textTransform: "uppercase" }}>{div.label}</span>
+                    <span style={{ background: "var(--ink)", color: "var(--paper)", fontSize: 11, fontWeight: 700, borderRadius: 20, padding: "1px 8px", marginLeft: 2 }}>{group.length}</span>
                   </div>
-
-                  <div className="two-col" style={{ display: "grid", gridTemplateColumns: "1fr", gap: 10 }}>
-                    <div>
-                      <label className="lbl">Grade (override if needed)</label>
-                      <div style={{ position: "relative" }}>
-                        <select className="ng-select" value={overrideGrade || (nextGradeKey(selStudent) || "")} onChange={(e) => { setOverrideGrade(e.target.value); setScores({}); }}>
-                          {gradesDesc.map((g) => <option key={g} value={g}>{g}</option>)}
-                        </select>
-                        <ChevronDown size={16} style={{ position: "absolute", right: 11, top: 12, pointerEvents: "none", color: "var(--ink-soft)" }} />
-                      </div>
-                    </div>
-                    <div><label className="lbl">Test date</label><input className="ng-input" type="date" value={testDate} onChange={(e) => setTestDate(e.target.value)} /></div>
-                  </div>
-
-                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                    <button className="ng-btn ng-btn-primary" onClick={() => setScreen("assess")} disabled={!testing}><ClipboardList size={16} /> Continue to assessment</button>
-                    <button className="ng-btn ng-btn-ghost" style={{ padding: "7px 12px", fontSize: 12.5 }} onClick={() => setEditingStudent(roster.find(s => s.id === selStudent))}><UserRound size={14} /> Edit student</button>
-                  </div>
-
-                  {/* inline edit form */}
-                  {editingStudent?.id === selStudent && (
-                    <div style={{ background: "var(--paper2)", borderRadius: 11, padding: "14px", display: "grid", gap: 10 }}>
-                      <label className="lbl" style={{ marginBottom: 0 }}>Edit student name</label>
-                      <div style={{ display: "flex", gap: 8 }}>
-                        <input className="ng-input" value={editingStudent.name} onChange={(e) => setEditingStudent({ ...editingStudent, name: e.target.value })} onKeyDown={(e) => e.key === "Enter" && saveEditStudent()} autoFocus />
-                        <button className="ng-btn ng-btn-ink" style={{ flex: "none" }} onClick={saveEditStudent}><Check size={15} /> Save</button>
-                        <button className="ng-btn ng-btn-ghost" style={{ flex: "none" }} onClick={() => setEditingStudent(null)}>Cancel</button>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* history */}
-                  {studentHistory(selStudent).length > 0 && (
-                    <div style={{ borderTop: "1px solid var(--line)", paddingTop: 12 }}>
-                      <label className="lbl">Rank history</label>
-                      <div style={{ display: "grid", gap: 5 }}>
-                        {studentHistory(selStudent).map((e) => (
-                          <div key={e.id} style={{ display: "flex", justifyContent: "space-between", fontSize: 13, padding: "5px 0", borderBottom: "1px dotted var(--line)" }}>
-                            <span><strong>{e.result === "Pass" ? e.rank : e.result === "Stripe" ? `Stripe ×${e.stripes || 1}` : e.result}</strong> <span style={{ color: "var(--ink-soft)" }}>· {e.grade}</span></span>
-                            <span style={{ color: "var(--ink-soft)" }}>{e.date}</span>
+                  <div style={{ display: "grid", gap: 8 }}>
+                    {group.map(s => {
+                      const rank = currentRank(s.id)
+                      const stripes = stripesNow(s.id)
+                      const initials = s.name.split(" ").map(p => p[0]).join("").slice(0,2).toUpperCase()
+                      const isSelected = selStudent === s.id
+                      return (
+                        <div key={s.id}>
+                          {/* Student card */}
+                          <div
+                            onClick={() => { setSelStudent(isSelected ? "" : s.id); setOverrideGrade(""); setScores({}); setEditingStudent(null); }}
+                            style={{ background: isSelected ? "#fff" : "rgba(255,255,255,.6)", border: `1px solid ${isSelected ? "var(--crimson)" : "var(--line)"}`, borderRadius: isSelected ? "14px 14px 0 0" : 14, padding: "13px 14px", display: "flex", alignItems: "center", gap: 12, cursor: "pointer", transition: "all .15s" }}
+                          >
+                            <div style={{ width: 42, height: 42, borderRadius: "50%", background: "var(--ink)", color: "var(--paper)", fontSize: 15, fontWeight: 600, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{initials}</div>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ fontSize: 15, fontWeight: 500 }}>{s.name}</div>
+                              <div style={{ fontSize: 12.5, color: "var(--ink-soft)", marginTop: 2, display: "flex", alignItems: "center", gap: 4 }}>
+                                <span style={{ display: "inline-block", width: 9, height: 9, borderRadius: "50%", background: { Beginner:"#F5F5F5","10th Kyu":"#F5F5F5","9th Kyu":"#F5F5F5","8th Kyu":"#F4D03F","7th Kyu":"#F4D03F","6th Kyu":"#E67E22","5th Kyu":"#E67E22","4th Kyu":"#27AE60","3rd Kyu":"#2980B9","2nd Kyu":"#8E44AD","1st Kyu":"#7B4B2A","Shodan":"#1a1a1a","Nidan":"#1a1a1a","Sandan":"#1a1a1a","Yondan":"#1a1a1a","Godan":"#1a1a1a" }[rank]||"#999", border: "0.5px solid rgba(0,0,0,0.12)" }} />
+                                {rank}{stripes > 0 && <span style={{ background: "#FEF3C7", color: "#92400E", border: "0.5px solid #F59E0B", borderRadius: 10, fontSize: 10, fontWeight: 500, padding: "1px 6px", marginLeft: 4 }}>Stripe</span>}
+                              </div>
+                            </div>
+                            <ChevronRight size={18} style={{ color: "var(--ink-soft)", transform: isSelected ? "rotate(90deg)" : "none", transition: "transform .15s" }} />
                           </div>
-                        ))}
-                      </div>
-                      <button className="ng-btn ng-btn-ghost" style={{ marginTop: 10, padding: "7px 12px", fontSize: 12.5, color: "var(--crimson)" }} onClick={() => removeStudent(selStudent)}><Trash2 size={14} /> Delete student & history</button>
-                    </div>
-                  )}
+
+                          {/* Expanded grading panel */}
+                          {isSelected && (
+                            <div style={{ background: "#fff", border: "1px solid var(--crimson)", borderTop: "none", borderRadius: "0 0 14px 14px", padding: "14px 14px 16px" }}>
+
+                              {/* Current → Testing for */}
+                              <div style={{ display: "flex", gap: 10, alignItems: "center", background: "var(--paper2)", borderRadius: 10, padding: "10px 12px", marginBottom: 12 }}>
+                                <div>
+                                  <div style={{ fontSize: 10, color: "var(--ink-soft)", fontWeight: 700, letterSpacing: ".05em" }}>CURRENT</div>
+                                  <div className="ng-serif" style={{ fontSize: 16, fontWeight: 700 }}>{rank}{stripes > 0 && <span style={{ color: "var(--crimson)", fontSize: 12 }}> +{stripes}▪</span>}</div>
+                                </div>
+                                <ChevronRight size={16} style={{ color: "var(--crimson)", flexShrink: 0 }} />
+                                <div>
+                                  <div style={{ fontSize: 10, color: "var(--ink-soft)", fontWeight: 700, letterSpacing: ".05em" }}>TESTING FOR</div>
+                                  <div className="ng-serif" style={{ fontSize: 16, fontWeight: 700, color: "var(--crimson-d)" }}>{testing ? testing.to : "Top rank reached"}</div>
+                                </div>
+                              </div>
+
+                              {/* Grade override + date */}
+                              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 12 }}>
+                                <div>
+                                  <label className="lbl">Grade override</label>
+                                  <div style={{ position: "relative" }}>
+                                    <select className="ng-select" style={{ padding: "8px 10px", fontSize: 13 }} value={overrideGrade || (nextGradeKey(s.id) || "")} onChange={(e) => { setOverrideGrade(e.target.value); setScores({}); }}>
+                                      {gradesDesc.map((g) => <option key={g} value={g}>{g}</option>)}
+                                    </select>
+                                    <ChevronDown size={14} style={{ position: "absolute", right: 8, top: 11, pointerEvents: "none", color: "var(--ink-soft)" }} />
+                                  </div>
+                                </div>
+                                <div>
+                                  <label className="lbl">Test date</label>
+                                  <input className="ng-input" style={{ padding: "8px 10px", fontSize: 13 }} type="date" value={testDate} onChange={(e) => setTestDate(e.target.value)} />
+                                </div>
+                              </div>
+
+                              {/* Actions */}
+                              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>
+                                <button className="ng-btn ng-btn-primary" style={{ fontSize: 13, padding: "9px 14px" }} onClick={() => setScreen("assess")} disabled={!testing}><ClipboardList size={14} /> Assess</button>
+                                <button className="ng-btn ng-btn-ghost" style={{ fontSize: 13, padding: "9px 12px" }} onClick={() => setEditingStudent(editingStudent?.id === s.id ? null : { id: s.id, name: s.name })}><UserRound size={13} /> Edit</button>
+                                <button className="ng-btn ng-btn-ghost" style={{ fontSize: 13, padding: "9px 12px" }} onClick={() => setScreen("print")} disabled={!testing}><Printer size={13} /> Sheet</button>
+                              </div>
+
+                              {/* Inline edit */}
+                              {editingStudent?.id === s.id && (
+                                <div style={{ background: "var(--paper2)", borderRadius: 10, padding: 12, marginBottom: 10, display: "grid", gap: 8 }}>
+                                  <label className="lbl" style={{ marginBottom: 0 }}>Edit name</label>
+                                  <div style={{ display: "flex", gap: 8 }}>
+                                    <input className="ng-input" style={{ padding: "8px 10px", fontSize: 13 }} value={editingStudent.name} onChange={(e) => setEditingStudent({ ...editingStudent, name: e.target.value })} onKeyDown={(e) => e.key === "Enter" && saveEditStudent()} autoFocus />
+                                    <button className="ng-btn ng-btn-ink" style={{ flex: "none", padding: "8px 12px", fontSize: 13 }} onClick={saveEditStudent}><Check size={13} /> Save</button>
+                                    <button className="ng-btn ng-btn-ghost" style={{ flex: "none", padding: "8px 10px", fontSize: 13 }} onClick={() => setEditingStudent(null)}>✕</button>
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* Rank history */}
+                              {studentHistory(s.id).length > 0 && (
+                                <div style={{ borderTop: "1px dotted var(--line)", paddingTop: 10 }}>
+                                  <label className="lbl">History</label>
+                                  <div style={{ display: "grid", gap: 4 }}>
+                                    {studentHistory(s.id).map((e) => (
+                                      <div key={e.id} style={{ display: "flex", justifyContent: "space-between", fontSize: 12.5, padding: "4px 0", borderBottom: "1px dotted var(--line)" }}>
+                                        <span>
+                                          <span style={{ display: "inline-block", width: 7, height: 7, borderRadius: "50%", background: e.result==="Pass"?"#2F7D52":e.result==="Stripe"?"#B08B3E":"#A8322A", marginRight: 6 }} />
+                                          <strong>{e.result === "Pass" ? e.rank : e.result === "Stripe" ? `Stripe ×${e.stripes||1}` : e.result}</strong>
+                                          <span style={{ color: "var(--ink-soft)" }}> · {e.grade}</span>
+                                        </span>
+                                        <span style={{ color: "var(--ink-soft)" }}>{e.date}</span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                  <button className="ng-btn ng-btn-ghost" style={{ marginTop: 8, padding: "6px 10px", fontSize: 12, color: "var(--crimson)" }} onClick={() => removeStudent(s.id)}><Trash2 size={12} /> Remove student</button>
+                                </div>
+                              )}
+                              {studentHistory(s.id).length === 0 && (
+                                <button className="ng-btn ng-btn-ghost" style={{ padding: "6px 10px", fontSize: 12, color: "var(--crimson)" }} onClick={() => removeStudent(s.id)}><Trash2 size={12} /> Remove student</button>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
                 </div>
-              )}
-              {roster.length === 0 && <p style={{ fontSize: 13, color: "var(--ink-soft)", fontStyle: "italic", margin: "4px 0 0" }}>Add your first student above to begin.</p>}
-            </div>
+              )
+            })}
           </div>
         )}
 
