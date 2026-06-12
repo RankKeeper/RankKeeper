@@ -440,14 +440,28 @@ export default function GradingApp() {
     const seen = new Set(roster.map((r) => r.name.toLowerCase().trim()));
     let added = 0, skipped = 0;
     rows.forEach((row) => {
-      const name = (row.name || row.student || "").trim();
+      const name = (row.name || row.full_name || row.student || "").trim();
       if (!name || seen.has(name.toLowerCase())) { skipped++; return; }
-      const id = uid(); newR.push({ id, name }); seen.add(name.toLowerCase());
-      const rank = normalizeRank(row.current_rank || row.rank || row["current rank"]);
+      const id = uid();
+      // Parse DOB — accept MM/DD/YYYY or YYYY-MM-DD
+      const rawDob = (row.dob || row.date_of_birth || row["date of birth"] || "").trim();
+      let dob = null;
+      if (rawDob) {
+        if (rawDob.includes('/')) { dob = parseDob(rawDob); }
+        else if (rawDob.match(/^\d{4}-\d{2}-\d{2}$/)) { dob = rawDob; }
+      }
+      newR.push({ id, name, dob });
+      seen.add(name.toLowerCase());
+      const rank = normalizeRank(row.current_rank || row.rank || row["current rank"] || row.starting_rank || "");
+      const rankDate = ((row.rank_date || row.date_of_rank || row["date of rank"] || row.date || "").trim()) || today();
       if (rank && rank !== "Beginner") {
         const gKey = grades.find((k) => syllabus[k].to === rank) || rank;
-        const date = ((row.date || "").trim()) || today();
-        newH.push({ id: uid(), studentId: id, studentName: name, date, grade: gKey, result: "Pass", rank, note: "imported" });
+        newH.push({ id: uid(), studentId: id, studentName: name, date: rankDate, grade: gKey, result: "Pass", rank, note: "imported" });
+        // Handle stripes (Brown/1st Kyu only)
+        const stripes = parseInt(row.stripes || "0");
+        if (stripes > 0 && rank === "1st Kyu") {
+          newH.push({ id: uid(), studentId: id, studentName: name, date: rankDate, grade: gKey, result: "Stripe", rank, stripes: Math.min(stripes, 3), note: "imported stripes" });
+        }
       }
       added++;
     });
@@ -461,11 +475,17 @@ export default function GradingApp() {
     reader.readAsText(f); e.target.value = "";
   };
   const downloadTemplate = () => {
-    const csv = "name,current_rank,date\nMaryam,3rd Kyu,2025-09-01\nJohn Smith,Beginner,\nAiko Tanaka,Shodan,2024-06-15\n";
+    const csv = [
+      "name,dob,current_rank,rank_date,stripes",
+      "Maya Chen,04/28/2015,9th Kyu,2025-09-01,0",
+      "Kenji Tanaka,03/15/2012,1st Kyu,2024-06-15,2",
+      "Marcus Webb,05/22/2010,Shodan,2023-11-10,0",
+      "John Smith,01/10/2014,Beginner,,0",
+    ].join("\n");
     try {
       const url = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
       const a = document.createElement("a"); a.href = url; a.download = "students-template.csv"; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
-    } catch (err) { setImportMsg("Template columns: name, current_rank, date"); }
+    } catch (err) { setImportMsg("Template columns: name, dob (MM/DD/YYYY), current_rank, rank_date (YYYY-MM-DD), stripes (0-3 for Brown/1st Kyu only)"); }
   };
   const [recStripes, setRecStripes] = useState(1);
   const recordResult = (result, targetRank) => {
@@ -717,12 +737,12 @@ export default function GradingApp() {
                               <div style={{ display: "flex", gap: 10, alignItems: "center", background: "var(--paper2)", borderRadius: 10, padding: "10px 12px", marginBottom: 12 }}>
                                 <div>
                                   <div style={{ fontSize: 10, color: "var(--ink-soft)", fontWeight: 700, letterSpacing: ".05em" }}>CURRENT</div>
-                                  <div className="ng-serif" style={{ fontSize: 16, fontWeight: 700 }}>{rankLabel(rank)}{stripes > 0 && <span style={{ color: "var(--crimson)", fontSize: 12 }}> · {stripes === 1 ? "stripe" : `${stripes} stripes`}</span>}</div>
+                                  <div className="ng-serif" style={{ fontSize: 16, fontWeight: 700, display:"flex", alignItems:"center" }}><span style={{ display:"inline-block",width:10,height:10,borderRadius:"50%",marginRight:6,flexShrink:0,border:"0.5px solid rgba(0,0,0,0.12)",verticalAlign:"middle", background: ({"Beginner":"#e8e8e8","10th Kyu":"#e8e8e8","9th Kyu":"#e8e8e8","8th Kyu":"#F4D03F","7th Kyu":"#F4D03F","6th Kyu":"#E67E22","5th Kyu":"#E67E22","4th Kyu":"#27AE60","3rd Kyu":"#2980B9","2nd Kyu":"#8E44AD","1st Kyu":"#7B4B2A","Shodan":"#1a1a1a","Nidan":"#1a1a1a","Sandan":"#1a1a1a","Yondan":"#1a1a1a","Godan":"#1a1a1a","Rokudan":"#1a1a1a","Shichidan":"#1a1a1a","Hachidan":"#1a1a1a","Kudan":"#1a1a1a"})[rank]||"#999" }} />{rankLabel(rank)}{stripes > 0 && <span style={{ color: "var(--crimson)", fontSize: 12 }}> · {stripes === 1 ? "stripe" : `${stripes} stripes`}</span>}</div>
                                 </div>
                                 <ChevronRight size={16} style={{ color: "var(--crimson)", flexShrink: 0 }} />
                                 <div>
                                   <div style={{ fontSize: 10, color: "var(--ink-soft)", fontWeight: 700, letterSpacing: ".05em" }}>TESTING FOR</div>
-                                  <div className="ng-serif" style={{ fontSize: 16, fontWeight: 700, color: "var(--crimson-d)" }}>{testing ? rankLabel(testing.to) : "Top rank reached"}</div>
+                                  <div className="ng-serif" style={{ fontSize: 16, fontWeight: 700, color: "var(--crimson-d)", display:"flex", alignItems:"center" }}><span style={{ display:"inline-block",width:10,height:10,borderRadius:"50%",marginRight:6,flexShrink:0,border:"0.5px solid rgba(0,0,0,0.12)",verticalAlign:"middle", background: ({"Beginner":"#e8e8e8","10th Kyu":"#e8e8e8","9th Kyu":"#e8e8e8","8th Kyu":"#F4D03F","7th Kyu":"#F4D03F","6th Kyu":"#E67E22","5th Kyu":"#E67E22","4th Kyu":"#27AE60","3rd Kyu":"#2980B9","2nd Kyu":"#8E44AD","1st Kyu":"#7B4B2A","Shodan":"#1a1a1a","Nidan":"#1a1a1a","Sandan":"#1a1a1a","Yondan":"#1a1a1a","Godan":"#1a1a1a","Rokudan":"#1a1a1a","Shichidan":"#1a1a1a","Hachidan":"#1a1a1a","Kudan":"#1a1a1a"})[testing?.to||'']||"#999" }} />{testing ? rankLabel(testing.to) : "Top rank reached"}</div>
                                 </div>
                               </div>
 
