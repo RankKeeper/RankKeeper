@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import { Settings, ClipboardList, Printer, Plus, Trash2, RotateCcw, Check, ChevronDown, UserRound, Eraser, GraduationCap, Mail, ChevronRight, CircleCheck, Upload, Download } from "lucide-react";
-import { syncRoster, syncRankTest } from './supabaseSync'
+import { syncRoster, syncRankTest, loadFromSupabase } from './supabaseSync'
 
 /* ====================================================================
    JKA HQ Kyu/Dan Grading Guideline (effective 1 April 2017)
@@ -265,8 +265,27 @@ export default function GradingApp() {
         const st = await loadKey("gsb:students", null);
         if (s) setSensei((p) => ({ ...p, ...s }));
         if (syl) setSyllabus(syl);
-        if (st) { setRoster(st.roster || []); setHistory(st.history || []); }
-        setStatus("saved");
+        if (st && (st.roster || []).length > 0) {
+          // localStorage has data — use it
+          setRoster(st.roster || []); setHistory(st.history || []);
+          setStatus("saved");
+        } else {
+          // localStorage empty — try pulling from Supabase (new device / fresh install)
+          setStatus("loading");
+          try {
+            const cloud = await loadFromSupabase();
+            if (cloud && cloud.roster.length > 0) {
+              setRoster(cloud.roster); setHistory(cloud.history);
+              // Write to localStorage so next load is instant
+              await saveKey("gsb:students", { roster: cloud.roster, history: cloud.history });
+              setStatus("saved");
+            } else {
+              setStatus("saved");
+            }
+          } catch(e) {
+            setStatus("local");
+          }
+        }
       } else { setStatus("local"); }
       setReady(true);
     })();
