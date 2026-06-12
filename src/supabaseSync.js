@@ -5,21 +5,18 @@ import { supabase as db } from './supabaseClient.js'
 
 const RANK_TO_BELT = {
   'Beginner':  'White',
-  '10th Kyu':  'White',
-  '9th Kyu':   'White',
-  '8th Kyu':   'Yellow',
-  '7th Kyu':   'Yellow',
-  '6th Kyu':   'Orange',
-  '5th Kyu':   'Orange',
+  '10th Kyu':  'White',  '9th Kyu':   'White',
+  '8th Kyu':   'Yellow', '7th Kyu':   'Yellow',
+  '6th Kyu':   'Orange', '5th Kyu':   'Orange',
   '4th Kyu':   'Green',
   '3rd Kyu':   'Blue',
   '2nd Kyu':   'Purple',
   '1st Kyu':   'Brown',
-  'Shodan':    'Black',
-  'Nidan':     'Black',
-  'Sandan':    'Black',
-  'Yondan':    'Black',
-  'Godan':     'Black',
+  'Shodan':    'Black',  'Nidan':     'Black',
+  'Sandan':    'Black',  'Yondan':    'Black',
+  'Godan':     'Black',  'Rokudan':   'Black',
+  'Shichidan': 'Black',  'Hachidan':  'Black',
+  'Kudan':     'Black',
 }
 
 function rankToBelt(rank) {
@@ -112,24 +109,29 @@ export async function syncRankTest(entry) {
 
 export async function loadFromSupabase() {
   const user = await getCurrentUser()
-  if (!user) return null
+  if (!user) { console.log('[sync] no user session'); return null }
 
-  const { data: students } = await db
+  const { data: students, error: sErr } = await db
     .from('students')
     .select('*')
     .eq('dojo_id', user.id)
     .eq('active', true)
     .order('name')
 
+  if (sErr) { console.error('[sync] students fetch error:', sErr); return null }
+  console.log('[sync] students from Supabase:', students?.length)
   if (!students?.length) return null
 
-  const { data: tests } = await db
+  const { data: tests, error: tErr } = await db
     .from('rank_tests')
     .select('*')
     .eq('dojo_id', user.id)
     .order('test_date', { ascending: true })
 
-  const roster = students.map(s => ({ id: s.app_id || s.id, name: s.name }))
+  if (tErr) console.error('[sync] rank_tests fetch error:', tErr)
+
+  // Include dob in roster so cross-device gets full student data
+  const roster = students.map(s => ({ id: s.app_id || s.id, name: s.name, dob: s.dob || null }))
 
   const history = (tests || []).map(t => {
     const student = students.find(s => s.id === t.student_id)

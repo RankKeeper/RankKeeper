@@ -50,6 +50,14 @@ const JKA = [
   { grade: "5th Dan (Godan)", from: "Yondan", to: "Godan", dan: "Min. 5 years after 4th Dan (WKF / NF framework — verify)",
     kihon: ["Sanbon Ren-zuki (step in)", "Age-uke, Soto-uke (same arm), Gyaku-zuki (step back)", "Chudan Uchi-uke, Kizami-zuki, Gyaku-zuki (Kokutsu, Zenkutsu) (step in)", "Shuto-uke, Kizami Mae-geri, Zenkutsu Nukite (step back)", "Mae-geri, Jodan Jun-zuki, Chudan Gyaku-zuki (step in)", "Yoko-geri Kekomi, Gyaku-zuki (step in)", "Mawashi-geri, Gyaku-zuki (step in)", "Mae-geri, Yoko-geri Kekomi, Mawashi-geri, Gyaku-zuki (alternate feet) (step in)", "Mae-geri, Yoko-geri Kekomi, Ushiro-geri (Zenkutsu-dachi, same foot R & L)"],
     kata: ["Examiner's choice: Heian Shodan – Tekki Sandan", "Student's favourite kata + Q&A"], kumite: ["Jiyu Kumite"] },
+  { grade: "6th Dan (Rokudan)", from: "Godan", to: "Rokudan", dan: "National body / JKA HQ examination",
+    kihon: [], kata: ["Examiner's choice + tokui"], kumite: ["Jiyu Kumite"] },
+  { grade: "7th Dan (Shichidan)", from: "Rokudan", to: "Shichidan", dan: "National body / JKA HQ examination",
+    kihon: [], kata: ["Examiner's choice + tokui"], kumite: ["Jiyu Kumite"] },
+  { grade: "8th Dan (Hachidan)", from: "Shichidan", to: "Hachidan", dan: "National body / JKA HQ examination",
+    kihon: [], kata: ["Examiner's choice + tokui"], kumite: ["Jiyu Kumite"] },
+  { grade: "9th Dan (Kudan)", from: "Hachidan", to: "Kudan", dan: "National body / JKA HQ examination",
+    kihon: [], kata: ["Examiner's choice + tokui"], kumite: ["Jiyu Kumite"] },
 ];
 
 const KYU_LADDER = JKA.map((g) => ({ grade: g.grade, from: g.from, to: g.to, dan: g.dan || undefined, kihon: [], kata: [], kumite: [] }));
@@ -220,8 +228,10 @@ export default function GradingApp() {
   const [newName, setNewName] = useState("");
   const [newDob, setNewDob] = useState("");
   const [newStartRank, setNewStartRank] = useState("Beginner");
+  const [newStripes, setNewStripes] = useState(0);
   const [editingStudent, setEditingStudent] = useState(null);
-  const [passConfirm, setPassConfirm] = useState(null); // {defaultRank} when open
+  const [passConfirm, setPassConfirm] = useState(null);
+  const [confirmDelete, setConfirmDelete] = useState(null); // studentId to delete
 
   // Calculate age from DOB string (YYYY-MM-DD) using device timezone
   const calcAge = (dob) => {
@@ -248,6 +258,13 @@ export default function GradingApp() {
     if (parts.length !== 8) return str;
     return `${parts.slice(4,8)}-${parts.slice(0,2)}-${parts.slice(2,4)}`;
   };
+
+  const formatDobInput = (val) => {
+    const digits = val.replace(/[^0-9]/g, '').slice(0, 8);
+    if (digits.length <= 2) return digits;
+    if (digits.length <= 4) return digits.slice(0,2) + '/' + digits.slice(2);
+    return digits.slice(0,2) + '/' + digits.slice(2,4) + '/' + digits.slice(4);
+  };
   const [overrideGrade, setOverrideGrade] = useState("");
   const [testDate, setTestDate] = useState(today());
   const [scores, setScores] = useState({}); // { itemId: "Pass"|"Refer"|"Fail" } — in-app data entry
@@ -265,27 +282,28 @@ export default function GradingApp() {
         const st = await loadKey("gsb:students", null);
         if (s) setSensei((p) => ({ ...p, ...s }));
         if (syl) setSyllabus(syl);
-        if (st && (st.roster || []).length > 0) {
-          // localStorage has data — use it
-          setRoster(st.roster || []); setHistory(st.history || []);
-          setStatus("saved");
-        } else {
-          // localStorage empty — try pulling from Supabase (new device / fresh install)
-          setStatus("loading");
-          try {
-            const cloud = await loadFromSupabase();
-            if (cloud && cloud.roster.length > 0) {
-              setRoster(cloud.roster); setHistory(cloud.history);
-              // Write to localStorage so next load is instant
-              await saveKey("gsb:students", { roster: cloud.roster, history: cloud.history });
-              setStatus("saved");
-            } else {
-              setStatus("saved");
-            }
-          } catch(e) {
-            setStatus("local");
+        const localRoster = st?.roster || [];
+        const localHistory = st?.history || [];
+        // Always try Supabase — merge cloud data with local (local wins for existing students)
+        try {
+          const cloud = await loadFromSupabase();
+          if (cloud && cloud.roster.length > 0) {
+            // Merge: add any cloud students not in local
+            const localIds = new Set(localRoster.map(s => s.id));
+            const mergedRoster = [...localRoster, ...cloud.roster.filter(s => !localIds.has(s.id))];
+            // Merge: add any cloud history not in local
+            const localHIds = new Set(localHistory.map(h => h.id));
+            const mergedHistory = [...localHistory, ...cloud.history.filter(h => !localHIds.has(h.id))];
+            setRoster(mergedRoster); setHistory(mergedHistory);
+            await saveKey("gsb:students", { roster: mergedRoster, history: mergedHistory });
+          } else {
+            setRoster(localRoster); setHistory(localHistory);
           }
+        } catch(e) {
+          // Supabase unavailable — use local
+          setRoster(localRoster); setHistory(localHistory);
         }
+        setStatus("saved");
       } else { setStatus("local"); }
       setReady(true);
     })();
@@ -339,6 +357,25 @@ export default function GradingApp() {
     const hs = history.filter((h) => h.studentId === sid).sort((a, b) => (a.date < b.date ? -1 : 1));
     let n = 0; hs.forEach((e) => { if (e.result === "Pass") n = 0; else if (e.result === "Stripe") n += (e.stripes || 1); }); return n;
   };
+
+  // Returns "9th Kyu — White" style label for any rank
+  const RANK_BELT_LABEL = {
+    "Beginner": "Beginner — White",
+    "10th Kyu": "10th Kyu — White", "9th Kyu": "9th Kyu — White",
+    "8th Kyu": "8th Kyu — Yellow", "7th Kyu": "7th Kyu — Yellow",
+    "6th Kyu": "6th Kyu — Orange", "5th Kyu": "5th Kyu — Orange",
+    "4th Kyu": "4th Kyu — Green",
+    "3rd Kyu": "3rd Kyu — Blue",
+    "2nd Kyu": "2nd Kyu — Purple",
+    "1st Kyu": "1st Kyu — Brown",
+    "Shodan": "1st Dan — Shodan", "Nidan": "2nd Dan — Nidan",
+    "Sandan": "3rd Dan — Sandan", "Yondan": "4th Dan — Yondan",
+    "Godan": "5th Dan — Godan", "Rokudan": "6th Dan — Rokudan",
+    "Shichidan": "7th Dan — Shichidan", "Hachidan": "8th Dan — Hachidan",
+    "Kudan": "9th Dan — Kudan",
+  };
+  const rankLabel = (r) => RANK_BELT_LABEL[r] || r;
+
   const nextGradeKey = (sid) => { const cur = currentRank(sid); return grades.find((k) => syllabus[k].from === cur) || null; };
 
   const testingKey = selStudent ? (overrideGrade || nextGradeKey(selStudent)) : (overrideGrade || editGrade);
@@ -351,9 +388,12 @@ export default function GradingApp() {
     let h = history;
     if (newStartRank && newStartRank !== "Beginner") {
       const gKey = grades.find((k) => syllabus[k].to === newStartRank) || newStartRank;
-      h = [...history, { id: uid(), studentId: id, studentName: name, date: today(), grade: gKey, result: "Pass", rank: newStartRank, note: "starting rank" }];
+      h = [...h, { id: uid(), studentId: id, studentName: name, date: today(), grade: gKey, result: "Pass", rank: newStartRank, note: "starting rank" }];
+      if (newStripes > 0 && newStartRank === "1st Kyu") {
+        h = [...h, { id: uid(), studentId: id, studentName: name, date: today(), grade: gKey, result: "Stripe", rank: newStartRank, stripes: newStripes, note: "starting stripes" }];
+      }
     }
-    setNewName(""); setNewDob(""); setNewStartRank("Beginner"); setSelStudent(id); setOverrideGrade("");
+    setNewName(""); setNewDob(""); setNewStartRank("Beginner"); setNewStripes(0); setSelStudent(id); setOverrideGrade("");
     persistStudents(r, h);
   };
   const removeStudent = (id) => {
@@ -365,7 +405,24 @@ export default function GradingApp() {
     if (!editingStudent || !editingStudent.name.trim()) return;
     const dob = parseDob(editingStudent.dob) || editingStudent.dob || null;
     const r = roster.map((s) => s.id === editingStudent.id ? { ...s, name: editingStudent.name.trim(), dob } : s);
-    const h = history.map((e) => e.studentId === editingStudent.id ? { ...e, studentName: editingStudent.name.trim() } : e);
+    let h = history.map((e) => e.studentId === editingStudent.id ? { ...e, studentName: editingStudent.name.trim() } : e);
+    // If sensei overrode the rank, add a correction entry to history
+    if (editingStudent.rankOverride) {
+      const stripeCount = editingStudent.editStripes || 0;
+      h = [...h, {
+        id: uid(), studentId: editingStudent.id, studentName: editingStudent.name.trim(),
+        date: today(), grade: editingStudent.rankOverride, result: "Pass",
+        rank: editingStudent.rankOverride, note: "rank correction by sensei"
+      }];
+      // If stripes added, also add a stripe entry
+      if (stripeCount > 0) {
+        h = [...h, {
+          id: uid(), studentId: editingStudent.id, studentName: editingStudent.name.trim(),
+          date: today(), grade: editingStudent.rankOverride, result: "Stripe",
+          rank: editingStudent.rankOverride, stripes: stripeCount, note: "stripes set by sensei"
+        }];
+      }
+    }
     persistStudents(r, h);
     setEditingStudent(null);
   };
@@ -576,22 +633,34 @@ export default function GradingApp() {
               <div style={{ display: "grid", gridTemplateColumns: "1fr 80px", gap: 8, marginTop: 10 }}>
                 <div>
                   <label className="lbl">Date of birth</label>
-                  <input className="ng-input" value={newDob} onChange={(e) => setNewDob(e.target.value)} placeholder="MM/DD/YYYY" maxLength={10} />
+                  <input className="ng-input" value={newDob} onChange={(e) => setNewDob(formatDobInput(e.target.value))} placeholder="MM/DD/YYYY" maxLength={10} />
                 </div>
                 <div>
                   <label className="lbl">Age</label>
                   <input className="ng-input" value={newDob && parseDob(newDob).length === 10 ? (calcAge(parseDob(newDob)) ?? '') : ''} readOnly style={{ background: "var(--paper2)", color: "var(--ink-soft)", cursor: "not-allowed" }} placeholder="Auto" />
                 </div>
               </div>
-              <div style={{ marginTop: 10 }}>
-                <label className="lbl">Starting rank <span style={{ fontWeight: 400, textTransform: "none", letterSpacing: 0 }}>(default: Beginner / White)</span></label>
-                <div style={{ position: "relative" }}>
-                  <select className="ng-select" value={newStartRank} onChange={(e) => setNewStartRank(e.target.value)}>
-                    <option value="Beginner">Beginner (White belt)</option>
-                    {grades.map((g) => <option key={g} value={syllabus[g].to}>{syllabus[g].to}</option>)}
-                  </select>
-                  <ChevronDown size={16} style={{ position: "absolute", right: 11, top: 12, pointerEvents: "none", color: "var(--ink-soft)" }} />
+              <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 8, marginTop: 10, alignItems: "end" }}>
+                <div>
+                  <label className="lbl">Starting rank <span style={{ fontWeight: 400, textTransform: "none", letterSpacing: 0 }}>(default: White)</span></label>
+                  <div style={{ position: "relative" }}>
+                    <select className="ng-select" value={newStartRank} onChange={(e) => { setNewStartRank(e.target.value); setNewStripes(0); }}>
+                      <option value="Beginner">Beginner — White</option>
+                      {grades.map((g) => <option key={g} value={syllabus[g].to}>{rankLabel(syllabus[g].to)}</option>)}
+                    </select>
+                    <ChevronDown size={16} style={{ position: "absolute", right: 11, top: 12, pointerEvents: "none", color: "var(--ink-soft)" }} />
+                  </div>
                 </div>
+                {newStartRank === "1st Kyu" && (
+                  <div style={{ minWidth: 90 }}>
+                    <label className="lbl">Stripes</label>
+                    <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                      <button className="ng-btn ng-btn-ghost" style={{ padding: "8px 10px" }} onClick={() => setNewStripes(n => Math.max(0,n-1))}>−</button>
+                      <div style={{ width: 28, textAlign: "center", fontWeight: 600 }}>{newStripes}</div>
+                      <button className="ng-btn ng-btn-ghost" style={{ padding: "8px 10px" }} onClick={() => setNewStripes(n => Math.min(3,n+1))}>+</button>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -603,7 +672,7 @@ export default function GradingApp() {
             {[
               { label: "Beginner",     color: "#27AE60", ranks: ["Beginner","10th Kyu","9th Kyu","8th Kyu","7th Kyu","6th Kyu"] },
               { label: "Intermediate", color: "#2980B9", ranks: ["5th Kyu","4th Kyu","3rd Kyu"] },
-              { label: "Advanced",     color: "#7B4B2A", ranks: ["2nd Kyu","1st Kyu","Shodan","Nidan","Sandan","Yondan","Godan"] },
+              { label: "Advanced",     color: "#7B4B2A", ranks: ["2nd Kyu","1st Kyu","Shodan","Nidan","Sandan","Yondan","Godan","Rokudan","Shichidan","Hachidan","Kudan"] },
             ].map(div => {
               const group = roster.filter(s => div.ranks.includes(currentRank(s.id)))
               if (!group.length) return null
@@ -631,8 +700,8 @@ export default function GradingApp() {
                             <div style={{ flex: 1, minWidth: 0 }}>
                               <div style={{ fontSize: 15, fontWeight: 500 }}>{s.name}</div>
                               <div style={{ fontSize: 12.5, color: "var(--ink-soft)", marginTop: 2, display: "flex", alignItems: "center", gap: 4 }}>
-                                <span style={{ display: "inline-block", width: 9, height: 9, borderRadius: "50%", background: { Beginner:"#F5F5F5","10th Kyu":"#F5F5F5","9th Kyu":"#F5F5F5","8th Kyu":"#F4D03F","7th Kyu":"#F4D03F","6th Kyu":"#E67E22","5th Kyu":"#E67E22","4th Kyu":"#27AE60","3rd Kyu":"#2980B9","2nd Kyu":"#8E44AD","1st Kyu":"#7B4B2A","Shodan":"#1a1a1a","Nidan":"#1a1a1a","Sandan":"#1a1a1a","Yondan":"#1a1a1a","Godan":"#1a1a1a" }[rank]||"#999", border: "0.5px solid rgba(0,0,0,0.12)" }} />
-                                {rank}{stripes > 0 && <span style={{ background: "#FEF3C7", color: "#92400E", border: "0.5px solid #F59E0B", borderRadius: 10, fontSize: 10, fontWeight: 500, padding: "1px 6px", marginLeft: 4 }}>Stripe</span>}
+                                <span style={{ display: "inline-block", width: 9, height: 9, borderRadius: "50%", background: { Beginner:"#e8e8e8","10th Kyu":"#e8e8e8","9th Kyu":"#e8e8e8","8th Kyu":"#F4D03F","7th Kyu":"#F4D03F","6th Kyu":"#E67E22","5th Kyu":"#E67E22","4th Kyu":"#27AE60","3rd Kyu":"#2980B9","2nd Kyu":"#8E44AD","1st Kyu":"#7B4B2A","Shodan":"#1a1a1a","Nidan":"#1a1a1a","Sandan":"#1a1a1a","Yondan":"#1a1a1a","Godan":"#1a1a1a","Rokudan":"#1a1a1a","Shichidan":"#1a1a1a","Hachidan":"#1a1a1a","Kudan":"#1a1a1a" }[rank]||"#999", border: "0.5px solid rgba(0,0,0,0.12)" }} />
+                                {rankLabel(rank)}{stripes > 0 && <span style={{ background: "#FEF3C7", color: "#92400E", border: "0.5px solid #F59E0B", borderRadius: 10, fontSize: 10, fontWeight: 500, padding: "1px 6px", marginLeft: 4 }}>{stripes === 1 ? "stripe" : `${stripes} stripes`}</span>}
                                 {s.dob && <span style={{ color: "var(--ink-soft)" }}> · Age {calcAge(s.dob)}</span>}
                               </div>
                             </div>
@@ -647,12 +716,12 @@ export default function GradingApp() {
                               <div style={{ display: "flex", gap: 10, alignItems: "center", background: "var(--paper2)", borderRadius: 10, padding: "10px 12px", marginBottom: 12 }}>
                                 <div>
                                   <div style={{ fontSize: 10, color: "var(--ink-soft)", fontWeight: 700, letterSpacing: ".05em" }}>CURRENT</div>
-                                  <div className="ng-serif" style={{ fontSize: 16, fontWeight: 700 }}>{rank}{stripes > 0 && <span style={{ color: "var(--crimson)", fontSize: 12 }}> +{stripes}▪</span>}</div>
+                                  <div className="ng-serif" style={{ fontSize: 16, fontWeight: 700 }}>{rankLabel(rank)}{stripes > 0 && <span style={{ color: "var(--crimson)", fontSize: 12 }}> · {stripes === 1 ? "stripe" : `${stripes} stripes`}</span>}</div>
                                 </div>
                                 <ChevronRight size={16} style={{ color: "var(--crimson)", flexShrink: 0 }} />
                                 <div>
                                   <div style={{ fontSize: 10, color: "var(--ink-soft)", fontWeight: 700, letterSpacing: ".05em" }}>TESTING FOR</div>
-                                  <div className="ng-serif" style={{ fontSize: 16, fontWeight: 700, color: "var(--crimson-d)" }}>{testing ? testing.to : "Top rank reached"}</div>
+                                  <div className="ng-serif" style={{ fontSize: 16, fontWeight: 700, color: "var(--crimson-d)" }}>{testing ? rankLabel(testing.to) : "Top rank reached"}</div>
                                 </div>
                               </div>
 
@@ -691,23 +760,41 @@ export default function GradingApp() {
                                   <div style={{ display: "grid", gridTemplateColumns: "1fr 80px", gap: 8, marginBottom: 12 }}>
                                     <div>
                                       <label className="lbl">Date of birth</label>
-                                      <input className="ng-input" value={editingStudent.dobDisplay || fmtDob(editingStudent.dob) || ''} onChange={(e) => setEditingStudent({ ...editingStudent, dobDisplay: e.target.value, dob: parseDob(e.target.value) })} placeholder="MM/DD/YYYY" maxLength={10} />
+                                      <input className="ng-input" value={editingStudent.dobDisplay || fmtDob(editingStudent.dob) || ''} onChange={(e) => { const fmt = formatDobInput(e.target.value); setEditingStudent({ ...editingStudent, dobDisplay: fmt, dob: parseDob(fmt) }); }} placeholder="MM/DD/YYYY" maxLength={10} />
                                     </div>
                                     <div>
                                       <label className="lbl">Age <span style={{ fontWeight: 400, textTransform: "none" }}>(auto)</span></label>
                                       <input className="ng-input" value={calcAge(editingStudent.dob) ?? ''} readOnly style={{ background: "#eee", color: "var(--ink-soft)", cursor: "not-allowed" }} placeholder="—" />
                                     </div>
                                   </div>
-                                  <div style={{ marginBottom: 14 }}>
-                                    <label className="lbl">Belt rank</label>
+                                  <div style={{ marginBottom: 12 }}>
+                                    <label className="lbl">Current belt rank</label>
                                     <div style={{ position: "relative" }}>
-                                      <select className="ng-select" value={editingStudent.belt || ''} onChange={(e) => setEditingStudent({ ...editingStudent, belt: e.target.value })}>
-                                        <option value="">— unchanged —</option>
-                                        {["White","Yellow","Orange","Green","Blue","Purple","Brown","Black"].map(b => <option key={b} value={b}>{b}</option>)}
+                                      <select className="ng-select" value={editingStudent.rankOverride || ''} onChange={(e) => setEditingStudent({ ...editingStudent, rankOverride: e.target.value, editStripes: 0 })}>
+                                        <option value="">— no change —</option>
+                                        <optgroup label="Kyu ranks (colored belts)">
+                                          {["10th Kyu","9th Kyu","8th Kyu","7th Kyu","6th Kyu","5th Kyu","4th Kyu","3rd Kyu","2nd Kyu","1st Kyu"].map(k => <option key={k} value={k}>{rankLabel(k)}</option>)}
+                                        </optgroup>
+                                        <optgroup label="Dan ranks (black belt)">
+                                          {["Shodan","Nidan","Sandan","Yondan","Godan","Rokudan","Shichidan","Hachidan","Kudan"].map(k => <option key={k} value={k}>{rankLabel(k)}</option>)}
+                                        </optgroup>
                                       </select>
                                       <ChevronDown size={14} style={{ position: "absolute", right: 10, top: 12, pointerEvents: "none", color: "var(--ink-soft)" }} />
                                     </div>
                                   </div>
+                                  {(editingStudent.rankOverride === "1st Kyu" || (!editingStudent.rankOverride && currentRank(s.id) === "1st Kyu")) && (
+                                    <div style={{ marginBottom: 12 }}>
+                                      <label className="lbl">Stripes (Brown / 1st Kyu only, 0–3)</label>
+                                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                        <button className="ng-btn ng-btn-ghost" style={{ padding: "8px 14px", fontSize: 16 }} onClick={() => setEditingStudent(es => ({ ...es, editStripes: Math.max(0, (es.editStripes||0) - 1) }))}>−</button>
+                                        <div style={{ flex: 1, textAlign: "center", fontSize: 15, fontWeight: 600, border: "1px solid var(--line)", borderRadius: 9, padding: "9px 0", background: "#fff" }}>{editingStudent.editStripes || 0}</div>
+                                        <button className="ng-btn ng-btn-ghost" style={{ padding: "8px 14px", fontSize: 16 }} onClick={() => setEditingStudent(es => ({ ...es, editStripes: Math.min(3, (es.editStripes||0) + 1) }))}>+</button>
+                                      </div>
+                                      <div style={{ fontSize: 11, color: "var(--ink-soft)", marginTop: 4 }}>
+                                        {(editingStudent.editStripes||0) === 0 ? "No stripes" : (editingStudent.editStripes||0) === 1 ? "stripe" : `${editingStudent.editStripes} stripes`}
+                                      </div>
+                                    </div>
+                                  )}
                                   <div style={{ display: "flex", gap: 8 }}>
                                     <button className="ng-btn ng-btn-ghost" style={{ flex: 1, padding: "11px" }} onClick={() => setEditingStudent(null)}>Cancel</button>
                                     <button className="ng-btn ng-btn-ink" style={{ flex: 1, padding: "11px", background: "var(--navy)", color: "var(--gold)", fontWeight: 700 }} onClick={saveEditStudent}>Save changes</button>
@@ -724,18 +811,18 @@ export default function GradingApp() {
                                       <div key={e.id} style={{ display: "flex", justifyContent: "space-between", fontSize: 12.5, padding: "4px 0", borderBottom: "1px dotted var(--line)" }}>
                                         <span>
                                           <span style={{ display: "inline-block", width: 7, height: 7, borderRadius: "50%", background: e.result==="Pass"?"#2F7D52":e.result==="Stripe"?"#B08B3E":"#A8322A", marginRight: 6 }} />
-                                          <strong>{e.result === "Pass" ? e.rank : e.result === "Stripe" ? `Stripe ×${e.stripes||1}` : e.result}</strong>
-                                          <span style={{ color: "var(--ink-soft)" }}> · {e.grade}</span>
+                                          <span style={{ display:"inline-block", width:7, height:7, borderRadius:"50%", background:{"Beginner":"#e8e8e8","10th Kyu":"#e8e8e8","9th Kyu":"#e8e8e8","8th Kyu":"#F4D03F","7th Kyu":"#F4D03F","6th Kyu":"#E67E22","5th Kyu":"#E67E22","4th Kyu":"#27AE60","3rd Kyu":"#2980B9","2nd Kyu":"#8E44AD","1st Kyu":"#7B4B2A","Shodan":"#1a1a1a","Nidan":"#1a1a1a","Sandan":"#1a1a1a","Yondan":"#1a1a1a","Godan":"#1a1a1a","Rokudan":"#1a1a1a","Shichidan":"#1a1a1a","Hachidan":"#1a1a1a","Kudan":"#1a1a1a"}[e.rank]||"#999", marginRight:5, flexShrink:0, border:"0.5px solid rgba(0,0,0,0.1)" }} />
+                                          <strong>{e.result === "Pass" ? rankLabel(e.rank) : e.result === "Stripe" ? `${rankLabel(e.rank)} · ${(e.stripes||1)===1 ? "stripe" : `${e.stripes} stripes`}` : e.result}</strong>
                                         </span>
                                         <span style={{ color: "var(--ink-soft)" }}>{e.date}</span>
                                       </div>
                                     ))}
                                   </div>
-                                  <button className="ng-btn ng-btn-ghost" style={{ marginTop: 8, padding: "6px 10px", fontSize: 12, color: "var(--crimson)" }} onClick={() => removeStudent(s.id)}><Trash2 size={12} /> Remove student</button>
+                                  <button className="ng-btn ng-btn-ghost" style={{ marginTop: 8, padding: "6px 10px", fontSize: 12, color: "var(--crimson)" }} onClick={() => setConfirmDelete(s.id)}><Trash2 size={12} /> Remove student</button>
                                 </div>
                               )}
                               {studentHistory(s.id).length === 0 && (
-                                <button className="ng-btn ng-btn-ghost" style={{ padding: "6px 10px", fontSize: 12, color: "var(--crimson)" }} onClick={() => removeStudent(s.id)}><Trash2 size={12} /> Remove student</button>
+                                <button className="ng-btn ng-btn-ghost" style={{ padding: "6px 10px", fontSize: 12, color: "var(--crimson)" }} onClick={() => setConfirmDelete(s.id)}><Trash2 size={12} /> Remove student</button>
                               )}
                             </div>
                           )}
@@ -747,6 +834,22 @@ export default function GradingApp() {
               )
             })}
           </div>
+
+          {/* ── Delete confirmation overlay ── */}
+          {confirmDelete && (
+            <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 300, display: "flex", alignItems: "flex-end", justifyContent: "center" }} onClick={(e) => { if(e.target===e.currentTarget) setConfirmDelete(null) }}>
+              <div style={{ background: "var(--paper)", borderRadius: "20px 20px 0 0", padding: "24px 20px 40px", width: "100%", maxWidth: 480, border: "0.5px solid var(--line)" }}>
+                <div style={{ fontSize: 19, fontWeight: 700, marginBottom: 6 }}>Remove student?</div>
+                <div style={{ fontSize: 14, color: "var(--ink-soft)", marginBottom: 20, lineHeight: 1.5 }}>
+                  This will permanently remove <strong>{roster.find(s=>s.id===confirmDelete)?.name}</strong> and all their rank history. This cannot be undone.
+                </div>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button className="ng-btn ng-btn-ghost" style={{ flex: 1, padding: 13 }} onClick={() => setConfirmDelete(null)}>Cancel</button>
+                  <button style={{ flex: 1, padding: 13, borderRadius: 10, border: "none", background: "#A8322A", color: "#fff", fontSize: 15, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }} onClick={() => { removeStudent(confirmDelete); setConfirmDelete(null); }}>Yes, remove</button>
+                </div>
+              </div>
+            </div>
+          )}
         )}
 
         {/* ===================== ASSESS ===================== */}
@@ -757,7 +860,7 @@ export default function GradingApp() {
             ) : (
               <>
                 <div className="ng-card" style={{ padding: 18 }}>
-                  <SectionTitle title="Assessment" sub={`${(roster.find((r) => r.id === selStudent) || {}).name || "Student"} · testing for ${testing.to} · ${testDate}`} />
+                  <SectionTitle title="Assessment" sub={`${(roster.find((r) => r.id === selStudent) || {}).name || "Student"} · testing for ${rankLabel(testing.to)} · ${testDate}`} />
                   <div style={{ display: "flex", gap: 7, flexWrap: "wrap" }}>
                     <button className="ng-btn ng-btn-ghost" style={{ padding: "7px 12px", fontSize: 12.5 }} onClick={() => setScores(allItems(testing).reduce((a, id) => ({ ...a, [id]: "Pass" }), {}))}>Mark all Pass</button>
                     <button className="ng-btn ng-btn-ghost" style={{ padding: "7px 12px", fontSize: 12.5 }} onClick={() => setScores({})}>Clear</button>
@@ -813,7 +916,7 @@ export default function GradingApp() {
                       <div style={{ fontSize: 14, color: "var(--ink-soft)", marginBottom: 20 }}>Promote {roster.find(s=>s.id===selStudent)?.name} to:</div>
                       <div style={{ position: "relative", marginBottom: 20 }}>
                         <select className="ng-select" value={passConfirm.targetRank} onChange={(e) => setPassConfirm({ ...passConfirm, targetRank: e.target.value })}>
-                          {grades.map(g => <option key={g} value={syllabus[g].to}>{syllabus[g].to}</option>)}
+                          {grades.map(g => <option key={g} value={syllabus[g].to}>{rankLabel(syllabus[g].to)}</option>)}
                         </select>
                         <ChevronDown size={16} style={{ position: "absolute", right: 11, top: 12, pointerEvents: "none", color: "var(--ink-soft)" }} />
                       </div>
