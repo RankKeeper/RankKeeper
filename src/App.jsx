@@ -835,25 +835,24 @@ export default function GradingApp() {
               )
             })}
           </div>
-
-          {/* ── Delete confirmation overlay ── */}
-          {confirmDelete && (
-            <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 300, display: "flex", alignItems: "flex-end", justifyContent: "center" }} onClick={(e) => { if(e.target===e.currentTarget) setConfirmDelete(null) }}>
-              <div style={{ background: "var(--paper)", borderRadius: "20px 20px 0 0", padding: "24px 20px 40px", width: "100%", maxWidth: 480, border: "0.5px solid var(--line)" }}>
-                <div style={{ fontSize: 19, fontWeight: 700, marginBottom: 6 }}>Remove student?</div>
-                <div style={{ fontSize: 14, color: "var(--ink-soft)", marginBottom: 20, lineHeight: 1.5 }}>
-                  This will permanently remove <strong>{roster.find(s=>s.id===confirmDelete)?.name}</strong> and all their rank history. This cannot be undone.
-                </div>
-                <div style={{ display: "flex", gap: 8 }}>
-                  <button className="ng-btn ng-btn-ghost" style={{ flex: 1, padding: 13 }} onClick={() => setConfirmDelete(null)}>Cancel</button>
-                  <button style={{ flex: 1, padding: 13, borderRadius: 10, border: "none", background: "#A8322A", color: "#fff", fontSize: 15, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }} onClick={() => { removeStudent(confirmDelete); setConfirmDelete(null); }}>Yes, remove</button>
-                </div>
-              </div>
-            </div>
-          )}
         )}
 
-        {/* ===================== ASSESS ===================== */}
+        {/* ── Delete confirmation overlay ── always rendered, not screen-specific */}
+        {confirmDelete && (
+          <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 300, display: "flex", alignItems: "flex-end", justifyContent: "center" }} onClick={(e) => { if(e.target===e.currentTarget) setConfirmDelete(null) }}>
+            <div style={{ background: "var(--paper)", borderRadius: "20px 20px 0 0", padding: "24px 20px 40px", width: "100%", maxWidth: 480, border: "0.5px solid var(--line)" }}>
+              <div style={{ fontSize: 19, fontWeight: 700, marginBottom: 6 }}>Remove student?</div>
+              <div style={{ fontSize: 14, color: "var(--ink-soft)", marginBottom: 20, lineHeight: 1.5 }}>
+                This will permanently remove <strong>{roster.find(s=>s.id===confirmDelete)?.name}</strong> and all their rank history. This cannot be undone.
+              </div>
+              <div style={{ display: "flex", gap: 8 }}>
+                <button className="ng-btn ng-btn-ghost" style={{ flex: 1, padding: 13 }} onClick={() => setConfirmDelete(null)}>Cancel</button>
+                <button style={{ flex: 1, padding: 13, borderRadius: 10, border: "none", background: "#A8322A", color: "#fff", fontSize: 15, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }} onClick={() => { removeStudent(confirmDelete); setConfirmDelete(null); }}>Yes, remove</button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {screen === "assess" && (
           <div className="ng-fade" style={{ display: "grid", gap: 16 }}>
             {!testing ? (
