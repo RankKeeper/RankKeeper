@@ -112,7 +112,7 @@ select{appearance:none;}
 .swap-strip{background:var(--beige-card);padding:6px 14px;display:flex;align-items:center;justify-content:center;gap:10px;border-bottom:0.5px solid var(--beige-border);flex-shrink:0;}
 .swap-btn{background:var(--beige-surface);border:0.5px solid var(--beige-border);border-radius:20px;padding:4px 12px;font-size:11px;color:var(--beige-sub);}
 .swap-icon{font-size:20px;color:var(--navy);font-weight:500;}
-.fighters{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--beige-border);flex:none;overflow:hidden;height:auto;max-height:380px;}
+.fighters{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--beige-border);flex:none;overflow:visible;height:auto;}
 .fighters.kata{grid-template-columns:32.5fr 35fr 32.5fr;}
 .fighter{padding:8px 10px 6px;display:flex;flex-direction:column;gap:5px;overflow:hidden;}
 .fighter.aka{background:var(--aka);}
@@ -150,7 +150,7 @@ select{appearance:none;}
 .kata-row-label{font-size:11px;font-weight:700;letter-spacing:.06em;margin-bottom:2px;}
 .kata-row-label.aka{color:var(--aka);}
 .kata-row-label.ao{color:var(--ao);}
-.kata-circle{width:64px;height:64px;border-radius:50%;font-size:26px;font-weight:700;color:#fff;border:none;}
+.kata-circle{width:9vw;height:9vw;max-width:110px;max-height:110px;min-width:52px;min-height:52px;aspect-ratio:1/1;border-radius:50%;font-size:3.5vw;font-weight:700;color:#fff;border:none;cursor:pointer;}
 .kata-circle.aka{background:var(--aka);}
 .kata-circle.ao{background:var(--ao);}
 .kata-circle.ao.aau-white{background:#ffffff;color:#1a1208;border:1.5px solid #C8BFA8;}
@@ -162,11 +162,11 @@ select{appearance:none;}
 .kata-reset{margin-top:4px;font-size:11px;color:var(--navy);border:0.5px solid var(--navy);border-radius:20px;padding:4px 12px;}
 
 .f-top{display:flex;align-items:center;justify-content:space-between;}
-.f-label{font-size:18px;font-weight:600;color:rgba(255,255,255,0.7);letter-spacing:.04em;}
+.f-label{font-size:1.5vw;font-weight:700;color:rgba(255,255,255,0.8);letter-spacing:.04em;min-font-size:14px;}
 .senshu-dot{width:12px;height:12px;border-radius:50%;cursor:pointer;flex-shrink:0;}
 .senshu-dot.on{background:var(--gold);}
 .senshu-dot.off{background:transparent;border:1px solid rgba(255,255,255,0.3);}
-.f-name{font-size:22px;color:#fff;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.f-name{font-size:1.8vw;color:#fff;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-font-size:14px;}
 .big-score{font-size:80px;font-weight:500;color:#fff;line-height:1;text-align:center;padding:0;}
 .score-btns{display:flex;flex-direction:column;gap:5px;}
 .score-btn{border:none;border-radius:8px;padding:12px 8px;background:rgba(255,255,255,0.18);color:#fff;display:flex;flex-direction:column;align-items:center;gap:4px;width:100%;cursor:pointer;font-size:24px;font-weight:700;}
@@ -225,8 +225,10 @@ select{appearance:none;}
   .kata-center { padding: 12px 8px; gap: 12px; width: 100%; }
   .kata-cols { gap: 2vw; justify-content: center; }
   .kata-col { gap: 1.5vw; }
-  .kata-circle { width: 10vw; height: 10vw; max-width: 120px; max-height: 120px; min-width: 70px; min-height: 70px; font-size: 4vw; }
+  .kata-circle { width: 9vw; height: 9vw; max-width: 110px; max-height: 110px; min-width: 60px; min-height: 60px; aspect-ratio: 1/1; font-size: 3.5vw; }
   .kata-row-label { font-size: 1.5vw; font-weight: 700; letter-spacing: .04em; }
+  .f-label { font-size: 1.5vw; }
+  .f-name { font-size: 1.8vw; }
   .kata-center-title { font-size: 14px; }
   .kata-result { font-size: 36px; }
   .kata-hint { font-size: 13px; }
@@ -269,7 +271,7 @@ select{appearance:none;}
 
   /* Kata center panel */
   .kata-center { padding: 6px; min-width: 120px; }
-  .kata-circle { width: 8vw; height: 8vw; max-width: 90px; min-width: 50px; font-size: 3.5vw; }
+  .kata-circle { width: 7vw; height: 7vw; max-width: 80px; min-width: 44px; aspect-ratio: 1/1; font-size: 3vw; }
 }
 </style>
 </head>
