@@ -217,7 +217,7 @@ export default function GradingApp() {
   const [ready, setReady] = useState(false);
   const [status, setStatus] = useState("idle"); // idle|saving|saved|local
 
-  const [sensei, setSensei] = useState({ name: "", title: "Sensei", dojo: "", system: "JKA Shotokan", scoring: "passrefer", signature: "" });
+  const [sensei, setSensei] = useState({ name: "", title: "Sensei", dojo: "", system: "JKA Shotokan", scoring: "passrefer", customScoreLabels: ["+++", "++", "+"], signature: "" });
   const [syllabus, setSyllabus] = useState(() => buildSyllabus(PRESETS["JKA Shotokan"].grades));
   const [roster, setRoster] = useState([]);     // [{id, name}]
   const [history, setHistory] = useState([]);   // [{id, studentId, studentName, date, grade, result, rank, stripes}]
@@ -333,9 +333,14 @@ export default function GradingApp() {
     if (hasStore()) { setStatus("saving"); const ok = await saveKey("gsb:students", { roster: r, history: h }); setStatus(ok ? "saved" : "local"); }
     syncRoster(r, h).catch(() => {})
   };
-  // Save sensei settings immediately (used by scoring toggle so it persists on the spot)
-  const setScoring = async (mode) => {
-    const updated = { ...sensei, scoring: mode };
+  // Save sensei settings immediately (used by scoring toggle + label edits)
+  const setScoring = async (mode, labels) => {
+    const defaultLabels = sensei.customScoreLabels?.length ? sensei.customScoreLabels : ["+++", "++", "+"];
+    const updated = {
+      ...sensei,
+      scoring: mode,
+      customScoreLabels: labels !== undefined ? labels : (mode === "custom" && !sensei.customScoreLabels?.length ? ["+++", "++", "+"] : defaultLabels),
+    };
     setSensei(updated);
     if (hasStore()) { await saveKey("gsb:sensei", updated); setStatus("saved"); }
   };
@@ -642,10 +647,34 @@ export default function GradingApp() {
                   </div>
                   <div>
                     <label className="lbl">Sheet scoring</label>
-                    <div style={{ display: "flex", gap: 6 }}>
+                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                       <button className={`ng-chip ${sensei.scoring === "passrefer" ? "ng-chip-on" : ""}`} onClick={() => setScoring("passrefer")}>Circle P/R/F</button>
                       <button className={`ng-chip ${sensei.scoring === "score10" ? "ng-chip-on" : ""}`} onClick={() => setScoring("score10")}>Score /10</button>
+                      <button className={`ng-chip ${sensei.scoring === "custom" ? "ng-chip-on" : ""}`} onClick={() => setScoring("custom")}>Custom</button>
                     </div>
+                    {sensei.scoring === "custom" && (
+                      <div style={{ marginTop: 12, background: "rgba(0,0,0,0.04)", borderRadius: 10, padding: "12px 12px 8px" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 10 }}>
+                          <span style={{ fontSize: 12, fontWeight: 700, color: "var(--ink-soft)", letterSpacing: ".04em", textTransform: "uppercase", flex: 1 }}>Score options</span>
+                          <span style={{ fontSize: 11, color: "var(--ink-soft)" }}>First = best</span>
+                          <button className="ng-btn ng-btn-ghost" style={{ fontSize: 11, padding: "4px 10px" }} onClick={() => setScoring("custom", ["+++", "++", "+"])}>↺ Load +++</button>
+                          <button className="ng-btn ng-btn-ghost" style={{ fontSize: 11, padding: "4px 10px" }} onClick={() => setScoring("custom", ["Pass", "Refer", "Fail"])}>↺ Load P/R/F</button>
+                        </div>
+                        {(sensei.customScoreLabels || ["+++", "++", "+"]).map((lbl, i, arr) => (
+                          <div key={i} style={{ display: "flex", gap: 6, marginBottom: 6, alignItems: "center" }}>
+                            <div style={{ width: 22, height: 22, borderRadius: "50%", background: i===0?"#2F7D52":i===arr.length-1?"#A8322A":"#B08B3E", flexShrink:0 }} />
+                            <input className="ng-input" style={{ padding: "7px 10px", fontSize: 13 }} value={lbl}
+                              onChange={(e) => { const u=[...(sensei.customScoreLabels||[])]; u[i]=e.target.value; setSensei(p=>({...p,customScoreLabels:u})); }} />
+                            {arr.length > 1 && (
+                              <button style={{ background:"none",border:"none",cursor:"pointer",color:"var(--crimson)",padding:4,fontSize:18,lineHeight:1 }}
+                                onClick={() => { const u=[...(sensei.customScoreLabels||[])]; u.splice(i,1); setScoring("custom",u); }}>×</button>
+                            )}
+                          </div>
+                        ))}
+                        <button className="ng-btn ng-btn-ghost" style={{ fontSize: 12, padding: "6px 10px", marginTop: 2, width: "100%" }}
+                          onClick={() => setScoring("custom", [...(sensei.customScoreLabels||[]), ""])}>+ Add option</button>
+                      </div>
+                    )}
                   </div>
                 </div>
                 {!PRESETS[sensei.system].complete && <div className="dan-note" style={{ borderColor: "var(--crimson)", background: "#FBEFEE", color: "var(--crimson-d)" }}>Starter shell — requirements aren't bundled for this system yet. Edit each grade below, or load its official syllabus.</div>}
@@ -973,13 +1002,14 @@ export default function GradingApp() {
                 <div className="ng-card" style={{ padding: 18 }}>
                   <SectionTitle title="Assessment" sub={`${(roster.find((r) => r.id === selStudent) || {}).name || "Student"} · testing for ${rankLabel(testing.to)} · ${testDate}`} />
                   <div style={{ display: "flex", gap: 7, flexWrap: "wrap", alignItems: "center" }}>
-                    <button className="ng-btn ng-btn-ghost" style={{ padding: "7px 12px", fontSize: 12.5 }} onClick={() => setScores(allItems(testing).reduce((a, id) => ({ ...a, [id]: sensei.scoring === "score10" ? 10 : "Pass" }), {}))}>
-                      {sensei.scoring === "score10" ? "Mark all 10" : "Mark all Pass"}
+                    <button className="ng-btn ng-btn-ghost" style={{ padding: "7px 12px", fontSize: 12.5 }} onClick={() => setScores(allItems(testing).reduce((a, id) => ({ ...a, [id]: sensei.scoring === "score10" ? 10 : sensei.scoring === "custom" ? (sensei.customScoreLabels?.[0] ?? "+++") : "Pass" }), {}))}>
+                      {sensei.scoring === "score10" ? "Mark all 10" : sensei.scoring === "custom" ? `Mark all ${sensei.customScoreLabels?.[0] ?? "+++"}` : "Mark all Pass"}
                     </button>
                     <button className="ng-btn ng-btn-ghost" style={{ padding: "7px 12px", fontSize: 12.5 }} onClick={() => setScores({})}>Clear</button>
                     <div style={{ marginLeft: "auto", display: "flex", gap: 5 }}>
-                      <button className={`ng-chip ${sensei.scoring === "passrefer" ? "ng-chip-on" : ""}`} style={{ padding: "6px 11px", fontSize: 12 }} onClick={() => setScoring("passrefer")}>P/R/F</button>
+                        <button className={`ng-chip ${sensei.scoring === "passrefer" ? "ng-chip-on" : ""}`} style={{ padding: "6px 11px", fontSize: 12 }} onClick={() => setScoring("passrefer")}>P/R/F</button>
                       <button className={`ng-chip ${sensei.scoring === "score10" ? "ng-chip-on" : ""}`} style={{ padding: "6px 11px", fontSize: 12 }} onClick={() => setScoring("score10")}>/10</button>
+                      <button className={`ng-chip ${sensei.scoring === "custom" ? "ng-chip-on" : ""}`} style={{ padding: "6px 11px", fontSize: 12 }} onClick={() => setScoring("custom")}>Custom</button>
                     </div>
                   </div>
                 </div>
@@ -1003,6 +1033,13 @@ export default function GradingApp() {
                                   placeholder="—"
                                   style={{ width: 68, padding: "6px 8px", borderRadius: 8, border: `1.5px solid ${scores[it.id] != null ? "var(--indigo)" : "var(--line)"}`, fontSize: 14, fontWeight: 600, textAlign: "center", fontFamily: "inherit", background: scores[it.id] != null ? "#EEF2FF" : "#fff", color: "var(--ink)" }}
                                 />
+                              ) : sensei.scoring === "custom" ? (
+                                (sensei.customScoreLabels || ["+++", "++", "+"]).map((lbl, idx, arr) => {
+                                  const on = scores[it.id] === lbl;
+                                  const col = idx === 0 ? "#2F7D52" : idx === arr.length - 1 ? "#A8322A" : "#B08B3E";
+                                  return <button key={lbl + idx} onClick={() => setScores((s) => ({ ...s, [it.id]: on ? undefined : lbl }))}
+                                    style={{ border: `1.5px solid ${on ? col : "var(--line)"}`, background: on ? col : "#fff", color: on ? "#fff" : "var(--ink-soft)", borderRadius: 999, padding: "6px 14px", fontSize: 12.5, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>{lbl}</button>;
+                                })
                               ) : (
                                 ["Pass", "Refer", "Fail"].map((r) => {
                                   const on = scores[it.id] === r;
@@ -1032,7 +1069,13 @@ export default function GradingApp() {
                     <button style={{ background: "#2F7D52", color: "#fff", border: "none", borderRadius: 10, padding: "9px 16px", fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", gap: 6 }} onClick={() => setPassConfirm({ targetRank: testing.to })}><CircleCheck size={15} /> Pass → {rankLabel(testing.to)}</button>
                     <button className="ng-btn ng-btn-primary" style={{ marginLeft: "auto" }} onClick={() => setScreen("print")}><Printer size={16} /> Print</button>
                   </div>
-                  <p style={{ fontSize: 12, color: "var(--ink-soft)", margin: "8px 0 0" }}>{sensei.scoring === "score10" ? "Scores entered above carry to the printed sheet. Blank items print as ____ / 10 to fill in by hand." : "Pass / Refer / Fail marks carry to the printed sheet — the chosen result is circled. Blank items print with circles to mark by hand."}</p>
+                  <p style={{ fontSize: 12, color: "var(--ink-soft)", margin: "8px 0 0" }}>{
+                    sensei.scoring === "score10"
+                      ? "Scores entered above carry to the printed sheet. Blank items print as ____ / 10 to fill in by hand."
+                      : sensei.scoring === "custom"
+                        ? "Selections carry to the printed sheet — the chosen option is circled. Blank items print all options to circle by hand."
+                        : "Pass / Refer / Fail marks carry to the printed sheet — the chosen result is circled. Blank items print with circles to mark by hand."
+                  }</p>
                 </div>
 
                 {/* Pass confirmation sheet */}
@@ -1110,9 +1153,13 @@ export default function GradingApp() {
                         {items.map((it) => (
                           <div className="sheet-item" key={it.id}>
                             <span>{it.text}</span>
-                            <span className="circle-opt">{sensei.scoring === "passrefer"
-                              ? ["Pass", "Refer", "Fail"].map((r) => <span key={r} className={scores[it.id] === r ? "opt-pick" : ""}>{r}</span>)
-                              : scores[it.id] != null ? <strong style={{ fontSize: 16 }}>{scores[it.id]} / 10</strong> : "____ / 10"}</span>
+                            <span className="circle-opt">{
+                              sensei.scoring === "passrefer"
+                                ? ["Pass", "Refer", "Fail"].map((r) => <span key={r} className={scores[it.id] === r ? "opt-pick" : ""}>{r}</span>)
+                                : sensei.scoring === "custom"
+                                  ? (sensei.customScoreLabels || ["+++", "++", "+"]).map((lbl) => <span key={lbl} className={scores[it.id] === lbl ? "opt-pick" : ""}>{lbl}</span>)
+                                  : scores[it.id] != null ? <strong style={{ fontSize: 16 }}>{scores[it.id]} / 10</strong> : "____ / 10"
+                            }</span>
                           </div>
                         ))}
                       </div>
