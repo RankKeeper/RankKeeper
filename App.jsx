@@ -158,12 +158,13 @@ const css = `
 .stamp{ border:2px solid var(--crimson); color:var(--crimson); border-radius:8px; font-family:'Shippori Mincho',serif; font-weight:700; padding:5px 11px; transform:rotate(-3deg); display:inline-block; font-size:13px; }
 .dan-note{ background:#FBF6EC; border:1px solid var(--gold); border-radius:8px; padding:9px 12px; font-size:12.5px; color:#6B541F; }
 .sig-line{ font-family:'Caveat',cursive; font-size:30px; line-height:1; color:var(--ink); }
+@page{ margin:0; }
 @media print{
   .no-print{ display:none !important; }
-  .ng-root{ background:#fff !important; }
+  .ng-root{ background:#fff !important; min-height:unset; }
   .sheet{ box-shadow:none !important; border:none !important; }
-  .print-area{ margin:0 !important; max-width:none !important; }
-  @page{ margin:13mm; }
+  .print-area{ margin:0 !important; padding:13mm !important; max-width:none !important; }
+  body{ margin:0 !important; }
 }
 @media (min-width:820px){ .two-col{ grid-template-columns:1fr 1fr !important; } }
 `;
